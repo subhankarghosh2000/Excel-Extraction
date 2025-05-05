@@ -64,3 +64,22 @@ def extract_product_name_description(text):
         return best.strip(), text
 
     return text.strip(), text  # fallback
+
+# === Main Code ===
+def process_file(input_path, output_path):
+    df = pd.read_excel(input_path)
+
+    desc_col = 'Product Description'
+    if desc_col not in df.columns:
+        raise ValueError(f"Column '{desc_col}' not found in the uploaded file")
+
+    # Add the Product Name column
+    df['Product Name'] = df[desc_col].apply(lambda x: extract_product_name_description(x)[0])
+
+    # Reorder columns to place Product Name before Product Description
+    cols = list(df.columns)
+    cols.insert(cols.index(desc_col), cols.pop(cols.index('Product Name')))
+    df = df[cols]
+
+    # Save the processed file
+    df.to_excel(output_path, index=False)
