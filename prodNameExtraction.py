@@ -67,19 +67,26 @@ def extract_product_name_description(text):
 
 # === Main Code ===
 def process_file(input_path, output_path):
-    df = pd.read_excel(input_path)
+    # Read the Excel file in chunks
+    chunks = pd.read_excel(input_path, chunksize=1000)  # Process 1000 rows at a time
+    processed_chunks = []
 
     desc_col = 'Product Description'
-    if desc_col not in df.columns:
-        raise ValueError(f"Column '{desc_col}' not found in the uploaded file")
 
-    # Add the Product Name column
-    df['Product Name'] = df[desc_col].apply(lambda x: extract_product_name_description(x)[0])
+    for chunk in chunks:
+        if desc_col not in chunk.columns:
+            raise ValueError(f"Column '{desc_col}' not found in the uploaded file")
 
-    # Reorder columns to place Product Name before Product Description
-    cols = list(df.columns)
-    cols.insert(cols.index(desc_col), cols.pop(cols.index('Product Name')))
-    df = df[cols]
+        # Add the Product Name column
+        chunk['Product Name'] = chunk[desc_col].apply(lambda x: extract_product_name_description(x)[0])
 
-    # Save the processed file
-    df.to_excel(output_path, index=False)
+        # Reorder columns to place Product Name before Product Description
+        cols = list(chunk.columns)
+        cols.insert(cols.index(desc_col), cols.pop(cols.index('Product Name')))
+        chunk = chunk[cols]
+
+        processed_chunks.append(chunk)
+
+    # Concatenate all processed chunks and save to output
+    processed_df = pd.concat(processed_chunks)
+    processed_df.to_excel(output_path, index=False)
