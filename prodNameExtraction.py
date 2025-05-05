@@ -1,4 +1,5 @@
 import pandas as pd
+from openpyxl import load_workbook
 import re
 
 def clean_text(text):
@@ -67,26 +68,35 @@ def extract_product_name_description(text):
 
 # === Main Code ===
 def process_file(input_path, output_path):
-    # Read the Excel file in chunks
-    chunks = pd.read_excel(input_path, chunksize=1000)  # Process 1000 rows at a time
+    # Load the workbook and get the sheet names
+    wb = load_workbook(input_path, read_only=True)
+    sheet = wb.active
+
+    # Read the header row
+    header = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+
+    # Ensure 'Product Description' column exists
+    if 'Product Description' not in header:
+        raise ValueError(f"Column 'Product Description' not found in the uploaded file")
+
+    desc_col_index = header.index('Product Description')
+
+    # Prepare to write the processed file
     processed_chunks = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        row_dict = dict(zip(header, row))
+        product_description = row_dict.get('Product Description', '')
+        product_name = extract_product_name_description(product_description)[0]
+        row_dict['Product Name'] = product_name
+        processed_chunks.append(row_dict)
 
-    desc_col = 'Product Description'
+    # Convert processed chunks to a DataFrame
+    processed_df = pd.DataFrame(processed_chunks)
 
-    for chunk in chunks:
-        if desc_col not in chunk.columns:
-            raise ValueError(f"Column '{desc_col}' not found in the uploaded file")
+    # Reorder columns to place 'Product Name' before 'Product Description'
+    cols = list(processed_df.columns)
+    cols.insert(cols.index('Product Description'), cols.pop(cols.index('Product Name')))
+    processed_df = processed_df[cols]
 
-        # Add the Product Name column
-        chunk['Product Name'] = chunk[desc_col].apply(lambda x: extract_product_name_description(x)[0])
-
-        # Reorder columns to place Product Name before Product Description
-        cols = list(chunk.columns)
-        cols.insert(cols.index(desc_col), cols.pop(cols.index('Product Name')))
-        chunk = chunk[cols]
-
-        processed_chunks.append(chunk)
-
-    # Concatenate all processed chunks and save to output
-    processed_df = pd.concat(processed_chunks)
+    # Save the processed DataFrame to an Excel file
     processed_df.to_excel(output_path, index=False)
