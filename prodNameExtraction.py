@@ -64,20 +64,3 @@ def extract_product_name_description(text):
         return best.strip(), text
 
     return text.strip(), text  # fallback
-
-# === Main Code ===
-file_path = 'Sample_Data_20250501.xlsx'  # Adjust if needed
-df = pd.read_excel(file_path)
-
-desc_col = 'Product Description'
-df['Product Name'] = df[desc_col].apply(lambda x: extract_product_name_description(x)[0])
-
-# Reorder columns
-cols = list(df.columns)
-cols.insert(cols.index(desc_col), cols.pop(cols.index('Product Name')))
-df = df[cols]
-
-output_path = 'Updated_Product_Data.csv'
-df.to_csv(output_path, index=False)
-
-print(f"✅ Final cleaned file saved to: {output_path}")
