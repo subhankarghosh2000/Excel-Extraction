@@ -1,6 +1,6 @@
 import pandas as pd
-from openpyxl import load_workbook
 import re
+import os
 
 def clean_text(text):
     if not isinstance(text, str):
@@ -66,37 +66,29 @@ def extract_product_name_description(text):
 
     return text.strip(), text  # fallback
 
-# === Main Code ===
 def process_file(input_path, output_path):
-    # Load the workbook and get the sheet names
-    wb = load_workbook(input_path, read_only=True)
-    sheet = wb.active
+    # Convert Excel to CSV
+    csv_path = input_path.replace('.xlsx', '.csv')
+    df = pd.read_excel(input_path)
+    df.to_csv(csv_path, index=False)
 
-    # Read the header row
-    header = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
 
     # Ensure 'Product Description' column exists
-    if 'Product Description' not in header:
+    if 'Product Description' not in df.columns:
         raise ValueError(f"Column 'Product Description' not found in the uploaded file")
 
-    desc_col_index = header.index('Product Description')
-
-    # Prepare to write the processed file
-    processed_chunks = []
-    for row in sheet.iter_rows(min_row=2, values_only=True):
-        row_dict = dict(zip(header, row))
-        product_description = row_dict.get('Product Description', '')
-        product_name = extract_product_name_description(product_description)[0]
-        row_dict['Product Name'] = product_name
-        processed_chunks.append(row_dict)
-
-    # Convert processed chunks to a DataFrame
-    processed_df = pd.DataFrame(processed_chunks)
+    # Add the Product Name column
+    df['Product Name'] = df['Product Description'].apply(lambda x: extract_product_name_description(x)[0])
 
     # Reorder columns to place 'Product Name' before 'Product Description'
-    cols = list(processed_df.columns)
+    cols = list(df.columns)
     cols.insert(cols.index('Product Description'), cols.pop(cols.index('Product Name')))
-    processed_df = processed_df[cols]
+    df = df[cols]
 
     # Save the processed DataFrame to an Excel file
-    processed_df.to_excel(output_path, index=False)
+    df.to_excel(output_path, index=False)
+
+    # Clean up the temporary CSV file
+    os.remove(csv_path)
