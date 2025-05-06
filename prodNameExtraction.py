@@ -72,23 +72,30 @@ def process_file(input_path, output_path):
     df = pd.read_excel(input_path)
     df.to_csv(csv_path, index=False)
 
-    # Read the CSV file
-    df = pd.read_csv(csv_path)
+    # Read the CSV file in chunks
+    chunk_size = 1000  # Process 1000 rows at a time
+    processed_chunks = []
 
-    # Ensure 'Product Description' column exists
-    if 'Product Description' not in df.columns:
-        raise ValueError(f"Column 'Product Description' not found in the uploaded file")
+    for chunk in pd.read_csv(csv_path, chunksize=chunk_size):
+        # Ensure 'Product Description' column exists
+        if 'Product Description' not in chunk.columns:
+            raise ValueError(f"Column 'Product Description' not found in the uploaded file")
 
-    # Add the Product Name column
-    df['Product Name'] = df['Product Description'].apply(lambda x: extract_product_name_description(x)[0])
+        # Add the Product Name column
+        chunk['Product Name'] = chunk['Product Description'].apply(lambda x: extract_product_name_description(x)[0])
 
-    # Reorder columns to place 'Product Name' before 'Product Description'
-    cols = list(df.columns)
-    cols.insert(cols.index('Product Description'), cols.pop(cols.index('Product Name')))
-    df = df[cols]
+        # Reorder columns to place 'Product Name' before 'Product Description'
+        cols = list(chunk.columns)
+        cols.insert(cols.index('Product Description'), cols.pop(cols.index('Product Name')))
+        chunk = chunk[cols]
+
+        processed_chunks.append(chunk)
+
+    # Concatenate all processed chunks
+    processed_df = pd.concat(processed_chunks)
 
     # Save the processed DataFrame to an Excel file
-    df.to_excel(output_path, index=False)
+    processed_df.to_excel(output_path, index=False)
 
     # Clean up the temporary CSV file
     os.remove(csv_path)
